@@ -6,6 +6,7 @@ import json
 import mimetypes
 import os
 import sys
+from pathlib import Path
 from typing import Dict, Tuple
 
 import tqdm
@@ -250,6 +251,9 @@ def parse_cli_args():
         '--output', '-o', default=None, metavar='O',
         help='Output file name. Defaults to input path + postfix "_anonymized".')
     parser.add_argument(
+        '--output-path', '-z', default=None, metavar='Z',
+        help='Output path where converted image save to. Default: input path)')
+    parser.add_argument(
         '--thresh', '-t', default=0.2, type=float, metavar='T',
         help='Detection threshold (tune this to trade off between false positive and false negative rate). Default: 0.2.')
     parser.add_argument(
@@ -323,6 +327,13 @@ def main():
     ffmpeg_config = args.ffmpeg_config
     backend = args.backend
     in_shape = args.scale
+    output_path = args.output_path
+
+
+    # create directory recursively if output path is not exists
+    if output_path is not None:
+        Path(output_path).mkdir(parents=True, exist_ok=True)
+
     replaceimg = None
     if in_shape is not None:
         w, h = in_shape.split('x')
@@ -330,7 +341,6 @@ def main():
     if replacewith == "img":
         replaceimg = imageio.imread(args.replaceimg)
         print(f'After opening {args.replaceimg} shape: {replaceimg.shape}')
-
 
     # TODO: scalar downscaling setting (-> in_shape), preserving aspect ratio
     centerface = CenterFace(in_shape=in_shape, backend=backend)
@@ -346,9 +356,15 @@ def main():
             enable_preview = True
         filetype = get_file_type(ipath)
         is_cam = filetype == 'cam'
-        if opath is None and not is_cam:
+
+        if opath is None and output_path is None and not is_cam:
             root, ext = os.path.splitext(ipath)
             opath = f'{root}_anonymized{ext}'
+
+        elif opath is None and output_path is not None and not is_cam:
+            _, filename = os.path.split(ipath)
+            opath = f'{output_path}/{filename}'
+
         print(f'Input:  {ipath}\nOutput: {opath}')
         if opath is None and not enable_preview:
             print('No output file is specified and the preview GUI is disabled. No output will be produced.')
